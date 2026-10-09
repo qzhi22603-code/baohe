@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="blue">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>宝盒 · 今日任务</title>
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="brand">
+    <span class="brand-logo" aria-hidden="true">宝</span>
+    <div class="brand-text">
+      <h1>宝盒</h1>
+      <span class="brand-sub">BAOHE · 每天收集一点闪光</span>
+    </div>
+  </div>
+  <div class="today-info" id="todayInfo"></div>
+</header>
+
+<nav class="nav" id="nav" aria-label="主导航">
+  <a href="#" data-page="tasks" class="active">今日任务</a>
+  <a href="#" data-page="collection">卡片盒</a>
+  <a href="#" data-page="achievements">成就</a>
+  <a href="#" data-page="announcements">公告板<span class="nav-dot" id="annDot" hidden></span></a>
+  <a href="#" data-page="about">关于作者</a>
+  <a href="#" data-page="settings">设置</a>
+</nav>
+
+<main id="app">
+
+  <!-- ══════════ 今日任务 ══════════ -->
+  <section id="page-tasks" class="page">
+    <div class="tasks-grid">
+      <div class="panel" id="poolPanel">
+        <div class="panel-head">
+          <h2>任务卡片</h2>
+          <span class="panel-hint">拖到右侧清单，或点 ＋ 添加</span>
+        </div>
+        <div class="cat-filter" id="catFilter"></div>
+        <div class="card-pool" id="cardPool"></div>
+      </div>
+      <div class="panel" id="listPanel">
+        <div class="panel-head">
+          <h2>今日任务清单</h2>
+          <span class="panel-hint" id="taskProgress"></span>
+        </div>
+        <div class="task-list" id="taskList"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 卡片盒 ══════════ -->
+  <section id="page-collection" class="page" hidden>
+    <div class="page-head">
+      <h2>卡片盒</h2>
+      <p>完成任务的卡片都会收进这里</p>
+    </div>
+    <div class="stats-strip" id="statsStrip"></div>
+    <div class="collected-grid" id="collectedGrid"></div>
+  </section>
+
+  <!-- ══════════ 成就 ══════════ -->
+  <section id="page-achievements" class="page" hidden>
+    <div class="page-head">
+      <h2>成就</h2>
+      <p>达成目标，解锁专属成就</p>
+    </div>
+    <h3 class="group-title">已达成</h3>
+    <div class="ach-grid" id="unlockedGrid"></div>
+    <h3 class="group-title">未达成</h3>
+    <div class="ach-grid" id="lockedGrid"></div>
+  </section>
+
+  <!-- ══════════ 公告板 ══════════ -->
+  <section id="page-announcements" class="page" hidden>
+    <div class="page-head">
+      <h2>公告板</h2>
+      <p>网站的更新内容会在这里呈递</p>
+    </div>
+    <div class="ann-list" id="annList"></div>
+  </section>
+
+  <!-- ══════════ 关于作者 ══════════ -->
+  <section id="page-about" class="page" hidden>
+    <div class="about-card">
+      <div class="avatar-wrap">
+        <img class="avatar" id="avatarImg" src="assets/avatar.jpg" alt="作者的微信头像">
+      </div>
+      <h2 class="author-name">Quanzhi</h2>
+      <p class="author-bio">一个有点天才的天才</p>
+      <div class="author-divider"></div>
+      <div class="wechat-row">
+        <span class="wechat-label">微信号</span>
+        <code class="wechat-id" id="wechatId">_Quanzhi</code>
+        <button class="btn btn-primary btn-sm" id="copyWechatBtn">复制</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 设置 ══════════ -->
+  <section id="page-settings" class="page" hidden>
+    <div class="page-head">
+      <h2>设置</h2>
+      <p>调整网站的外观与数据</p>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>配色</h2><span class="panel-hint">选择你喜欢的一套</span></div>
+      <div class="theme-grid" id="themeGrid"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>数据管理</h2><span class="panel-hint">数据仅保存在你的浏览器本地</span></div>
+      <div class="data-actions">
+        <button class="btn btn-ghost" id="exportBtn">导出数据</button>
+        <button class="btn btn-ghost" id="importBtn">导入数据</button>
+        <button class="btn btn-danger" id="clearBtn">清空数据</button>
+        <input type="file" id="importFile" accept="application/json,.json" hidden>
+      </div>
+      <p class="data-note">网站更新不会清除你的数据；换电脑或换浏览器时，可用「导出 / 导入」搬移数据。</p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <span>宝盒 · 数据保存在本地浏览器</span>
+  <span id="footerVersion">v1.0.0</span>
+</footer>
+
+<div class="toast" id="toast" role="status" hidden></div>
+<div class="modal-backdrop" id="modalBackdrop" hidden>
+  <div class="modal" id="modalBox" role="dialog" aria-modal="true"></div>
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>
