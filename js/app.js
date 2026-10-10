@@ -112,6 +112,14 @@ function sumCatCount(s, cat) {
 /* ─────────── 公告（每次更新在这里追加一条，最新的放最上面） ─────────── */
 const ANNOUNCEMENTS = [
   {
+    version: '1.2.1',
+    date: '2026-10-10',
+    title: '集卡特效登场 ✨',
+    items: [
+      '新增：完成任务时的集卡特效——卡片弹出到屏幕中央、星光闪烁，随后被吸入屏幕底端，伴随翻纸音效',
+    ],
+  },
+  {
     version: '1.2.0',
     date: '2026-10-10',
     title: '明日任务 · 卡片管理 · 更多成就 🔮',
@@ -520,6 +528,7 @@ function collectItem(itemUid) {
     checkAchievements();
     toast(`✨ 已收集〔${entry.name}〕卡片 ×${entry.count}`);
     renderTasks();
+    playCollectFx(entry);
   };
 
   if (row) {
@@ -996,6 +1005,64 @@ $('#avatarImg').addEventListener('dblclick', () => {
   saveData();
   checkAchievements();
 });
+
+/* ══════════════ 集卡特效 ══════════════ */
+let fxAudio = null;
+/* 合成翻纸音效（轻薄高亮版）：一声、约0.18秒、干脆无沙沙 */
+function fxSound() {
+  try {
+    fxAudio = fxAudio || new (window.AudioContext || window.webkitAudioContext)();
+    if (fxAudio.state === 'suspended') fxAudio.resume();
+    const t = fxAudio.currentTime;
+    const sr = fxAudio.sampleRate;
+    const dur = 0.18;
+    const buf = fxAudio.createBuffer(1, Math.floor(sr * dur), sr);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) {
+      const p = i / d.length;
+      d[i] = (Math.random() * 2 - 1) * Math.min(p / 0.055, 1) * Math.pow(1 - p, 1.9);
+    }
+    const src = fxAudio.createBufferSource();
+    src.buffer = buf;
+    const bp = fxAudio.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.Q.value = 1.1;
+    bp.frequency.setValueAtTime(3200, t);
+    bp.frequency.exponentialRampToValueAtTime(1200, t + dur);
+    const g = fxAudio.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(0.4, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    src.connect(bp); bp.connect(g); g.connect(fxAudio.destination);
+    src.start(t);
+  } catch (e) { /* 音频不可用时静默 */ }
+}
+/* 卡片弹出屏幕中央（约1秒，周围小星星闪烁，配一声翻纸）→ 被吸入屏幕底端（约0.8秒，无声） */
+function playCollectFx(entry) {
+  const el = document.createElement('div');
+  el.className = 'collect-fx';
+  el.innerHTML = `
+    <div class="fx-card">
+      <div class="fx-emoji">${esc(entry.emoji)}</div>
+      <div class="fx-name">${esc(entry.name)}</div>
+      <span class="fx-count">× ${entry.count}</span>
+    </div>`;
+  for (let i = 0; i < 9; i++) {
+    const s = document.createElement('span');
+    s.className = 'fx-star';
+    s.textContent = i % 2 ? '✦' : '✧';
+    const ang = Math.random() * Math.PI * 2;
+    const dist = 75 + Math.random() * 45;
+    s.style.setProperty('--sx', (Math.cos(ang) * dist * 1.3).toFixed(0) + 'px');
+    s.style.setProperty('--sy', (Math.sin(ang) * dist * 0.85).toFixed(0) + 'px');
+    s.style.animationDelay = (Math.random() * 0.18).toFixed(2) + 's';
+    el.appendChild(s);
+  }
+  document.body.appendChild(el);
+  requestAnimationFrame(() => { el.classList.add('pop'); fxSound(); });
+  setTimeout(() => { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('suck'); }, 1050);
+  setTimeout(() => el.remove(), 1950);
+}
 
 /* ══════════════ 初始化 ══════════════ */
 function init() {
