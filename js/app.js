@@ -81,15 +81,47 @@ const ACHIEVEMENTS = [
     progress: s => (s.customCards || []).length },
   { id: 'declutter', name: '断舍离', icon: '🗑️', desc: '删除一张自定义任务卡片', goal: 1,
     progress: s => s.stats.deletedCards || 0 },
-  { id: 'gem', name: '金石为开', icon: '💎', desc: '收集同一张卡片超过 10 张', goal: 11,
+  { id: 'gem', name: '金石为开', icon: '💎', desc: '收集同一张卡片达到 10 张', goal: 10,
     progress: s => Math.max(0, ...Object.values(s.collection).map(c => c.count)) },
   { id: 'full-house', name: '满堂彩', icon: '🎉', desc: '一天之内完成学习、体育、文艺、生活四种任务', goal: 4,
     progress: s => Math.max(0, ...Object.values(s.history).map(h =>
       ['study', 'sport', 'art', 'life'].filter(c => (h.cats || {})[c] > 0).length)) },
+  { id: 'golden-hour', name: '黄金体验', icon: '🌅', desc: '在早上 6-8 点之间完成一张任务', goal: 1,
+    progress: s => s.stats.morningCollects || 0 },
+  { id: 'calm-night', name: '气定神闲', icon: '🌃', desc: '在晚上 22-24 点之间完成一张任务', goal: 1,
+    progress: s => s.stats.nightCollects || 0 },
+  { id: 'deadly-rhythm', name: '致命节奏', icon: '🥁', desc: '在「关于作者」界面累计拍拍作者 6 次', goal: 6,
+    progress: s => s.stats.avatarPats || 0 },
+  { id: 'flush', name: '同花顺', icon: '🃏', desc: '收集 5 张不同的任务卡片', goal: 5,
+    progress: s => Object.values(s.collection).filter(c => c.count > 0).length },
+  { id: 'royal-flush', name: '皇家同花顺', icon: '👑', desc: '收集 8 张不同的任务卡片', goal: 8,
+    progress: s => Object.values(s.collection).filter(c => c.count > 0).length },
+  { id: 'sport-five', name: '力拔山兮', icon: '🏋️', desc: '累计收集 5 张体育类卡片', goal: 5,
+    progress: s => sumCatCount(s, 'sport') },
+  { id: 'study-ten', name: '汗牛充栋', icon: '📚', desc: '累计收集 10 张学习类卡片', goal: 10,
+    progress: s => sumCatCount(s, 'study') },
+  { id: 'art-five', name: '阳春白雪', icon: '🎻', desc: '累计收集 5 张文艺类卡片', goal: 5,
+    progress: s => sumCatCount(s, 'art') },
 ];
+
+/* 某类别卡片的累计收集总数 */
+function sumCatCount(s, cat) {
+  return Object.values(s.collection).filter(c => c.cat === cat).reduce((n, c) => n + c.count, 0);
+}
 
 /* ─────────── 公告（每次更新在这里追加一条，最新的放最上面） ─────────── */
 const ANNOUNCEMENTS = [
+  {
+    version: '1.2.0',
+    date: '2026-10-10',
+    title: '明日任务 · 卡片管理 · 更多成就 🔮',
+    items: [
+      '新增：「明日任务」——今日清单可翻页到明天，提前部署第二天的任务（明天才可完成），第二天自动接棒为今日清单',
+      '新增：初始任务卡片支持删除，删除后可随时在卡片池下方一键恢复',
+      '新增：一批新成就等你发现；另调整了部分成就的达成条件',
+      '优化：手机端「今日任务」页面操作体验（按钮常显、触控尺寸更合适）',
+    ],
+  },
   {
     version: '1.1.0',
     date: '2026-10-09',
@@ -175,12 +207,20 @@ function defaultData() {
     schema: SCHEMA_VERSION,
     createdAt: todayStr(),
     theme: 'blue',
-    customCards: [],        // 用户自建卡片模板 [{id,name,emoji,createdAt}]
-    collection: {},         // cardId -> {count,name,emoji,lastAt}
+    customCards: [],        // 用户自建卡片模板 [{id,name,emoji,cat,createdAt}]
+    hiddenBuiltin: [],      // 用户删除的初始卡片 id（可恢复）
+    collection: {},         // cardId -> {count,name,emoji,cat,lastAt}
     todayList: [],          // 当日清单 [{uid,cardId,addedAt}]
+    tomorrowList: [],       // 明日清单（提前部署，次日自动接棒）
     todayDate: todayStr(),
-    history: {},            // date -> {collected:n}
-    stats: { totalCollected: 0 },
+    history: {},            // date -> {collected:n, cards:{}, cats:{}}
+    stats: {
+      totalCollected: 0,
+      deletedCards: 0,      // 删除的自定义卡片模板数（断舍离）
+      morningCollects: 0,   // 早6-8点完成数（黄金体验）
+      nightCollects: 0,     // 晚22-24点完成数（气定神闲）
+      avatarPats: 0,        // 拍拍作者次数（致命节奏）
+    },
     unlocked: {},           // 成就id -> 解锁日期
     lastReadAnnouncement: '',
   };
@@ -197,7 +237,10 @@ function loadData() {
     // 合并默认值：新增字段自动补齐，用户数据原样保留
     const merged = Object.assign(defaultData(), saved);
     // stats 单独深合并，保证旧数据升级后也有 deletedCards 等新字段
-    merged.stats = Object.assign({ totalCollected: 0, deletedCards: 0 }, saved.stats || {});
+    merged.stats = Object.assign(
+      { totalCollected: 0, deletedCards: 0, morningCollects: 0, nightCollects: 0, avatarPats: 0 },
+      saved.stats || {},
+    );
     return merged;
   } catch (e) {
     storageOK = false;
@@ -215,12 +258,13 @@ function saveData() {
 
 let state = loadData();
 
-/* 跨天时清空"今日清单"（收集记录永久保留在 history / collection） */
+/* 跨天时：今日清单按日清空；若提前部署了明日任务则自动接棒为今日清单 */
 function rolloverToday() {
   const today = todayStr();
   if (state.todayDate !== today) {
     state.todayDate = today;
-    state.todayList = [];
+    state.todayList = state.tomorrowList.length ? state.tomorrowList : [];
+    state.tomorrowList = [];
     saveData();
   }
 }
@@ -261,7 +305,8 @@ function streakDays() {
 
 /* ══════════════ 卡片模板 ══════════════ */
 function allCardTemplates() {
-  return [...BUILTIN_CARDS, ...state.customCards];
+  const visible = BUILTIN_CARDS.filter(c => !state.hiddenBuiltin.includes(c.id));
+  return [...visible, ...state.customCards];
 }
 function findTemplate(cardId) {
   return allCardTemplates().find(c => c.id === cardId);
@@ -332,7 +377,13 @@ function renderPage() {
 }
 
 /* ══════════════ 今日任务页 ══════════════ */
-let currentCat = 'all'; // 卡片池当前筛选的类别
+let currentCat = 'all';   // 卡片池当前筛选的类别
+let currentDay = 'today'; // 清单当前页：today 今日 / tomorrow 明日
+
+/* 当前页对应的清单数组 */
+function listState() {
+  return currentDay === 'tomorrow' ? state.tomorrowList : state.todayList;
+}
 
 function renderTasks() {
   /* 类别筛选条 */
@@ -352,8 +403,8 @@ function renderTasks() {
     return `
     <div class="task-card" data-card="${esc(c.id)}" title="${esc(ci.name)} · 拖到右侧清单，或点 ＋ 添加">
       <span class="card-cat" title="${esc(ci.name)}">${ci.emoji}</span>
-      <button class="card-corner add" data-add="${esc(c.id)}" title="添加到今日清单">＋</button>
-      ${isCustomCard(c.id) ? `<button class="card-corner del" data-delcard="${esc(c.id)}" title="删除这张自定义卡片">✕</button>` : ''}
+      <button class="card-corner add" data-add="${esc(c.id)}" title="添加到${currentDay === 'tomorrow' ? '明日' : '今日'}清单">＋</button>
+      <button class="card-corner del" data-delcard="${esc(c.id)}" title="删除这张卡片">✕</button>
       <span class="card-emoji">${esc(c.emoji)}</span>
       <span class="card-name">${esc(c.name)}</span>
     </div>`;
@@ -368,25 +419,42 @@ function renderTasks() {
     </div>`;
   pool.innerHTML = html;
 
+  /* 已删除初始卡片的恢复入口 */
+  const restoreWrap = $('#restoreBuiltin');
+  if (state.hiddenBuiltin.length > 0) {
+    restoreWrap.hidden = false;
+    restoreWrap.textContent = `↩ 恢复已删除的初始卡片（${state.hiddenBuiltin.length} 张）`;
+  } else {
+    restoreWrap.hidden = true;
+  }
+
+  /* 今日 / 明日 翻页 */
+  $('#dayTabs').innerHTML = `
+    <button class="day-tab ${currentDay === 'today' ? 'active' : ''}" data-day="today">今日任务</button>
+    <button class="day-tab ${currentDay === 'tomorrow' ? 'active' : ''}" data-day="tomorrow">明日任务${state.tomorrowList.length ? ' · ' + state.tomorrowList.length : ''}</button>`;
+  $('#listTitle').textContent = currentDay === 'tomorrow' ? '明日任务清单' : '今日任务清单';
+
   /* 清单 */
   const list = $('#taskList');
-  if (state.todayList.length === 0) {
+  const isTomorrow = currentDay === 'tomorrow';
+  const active = listState();
+  if (active.length === 0) {
     list.innerHTML = `
       <div class="empty-state">
-        <span class="empty-emoji">🗒️</span>
-        今天还是空的<br>把左侧的任务卡片拖进来吧
+        <span class="empty-emoji">${isTomorrow ? '🗓️' : '🗒️'}</span>
+        ${isTomorrow ? '明天还是空的<br>提前把任务卡片拖进来部署吧' : '今天还是空的<br>把左侧的任务卡片拖进来吧'}
       </div>`;
   } else {
-    list.innerHTML = state.todayList.map(item => {
+    list.innerHTML = active.map(item => {
       const tpl = findTemplate(item.cardId);
       const snap = state.collection[item.cardId];
       const name = tpl ? tpl.name : snap?.name || '未知任务';
       const emoji = tpl ? tpl.emoji : snap?.emoji || '❓';
       const ci = catInfo(tpl ? catOf(tpl) : (snap?.cat || 'other'));
       return `
-      <div class="task-row" data-uid="${esc(item.uid)}">
+      <div class="task-row${isTomorrow ? ' tomorrow' : ''}" data-uid="${esc(item.uid)}">
         <span class="grip" title="拖动排序">⋮⋮</span>
-        <button class="checkbox" data-check="${esc(item.uid)}" title="完成任务并收集卡片">✓</button>
+        <button class="checkbox" data-check="${esc(item.uid)}" title="${isTomorrow ? '明天才能完成哦' : '完成任务并收集卡片'}">✓</button>
         <span class="row-name"><span>${esc(emoji)}</span>${esc(name)}</span>
         <span class="row-cat" title="${esc(ci.name)}">${ci.emoji} ${esc(ci.name.replace('类', ''))}</span>
         <button class="row-x" data-remove="${esc(item.uid)}" title="从清单移除">✕</button>
@@ -395,11 +463,15 @@ function renderTasks() {
   }
 
   /* 进度 */
-  const done = collectedToday();
-  const pending = state.todayList.length;
-  $('#taskProgress').textContent = pending > 0 || done > 0
-    ? `已完成 ${done} · 待完成 ${pending}`
-    : '点击方块完成任务';
+  if (isTomorrow) {
+    $('#taskProgress').textContent = '明天做不了，只能提前部署';
+  } else {
+    const done = collectedToday();
+    const pending = state.todayList.length;
+    $('#taskProgress').textContent = pending > 0 || done > 0
+      ? `已完成 ${done} · 待完成 ${pending}`
+      : '点击方块完成任务';
+  }
 }
 
 function isCustomCard(cardId) {
@@ -409,9 +481,10 @@ function isCustomCard(cardId) {
 function addToList(cardId, index = null) {
   const tpl = findTemplate(cardId);
   if (!tpl) return;
+  const target = listState(); // 加到当前翻到的清单页（今日或明日）
   const item = { uid: uid(), cardId, addedAt: Date.now() };
-  if (index === null || index >= state.todayList.length) state.todayList.push(item);
-  else state.todayList.splice(index, 0, item);
+  if (index === null || index >= target.length) target.push(item);
+  else target.splice(index, 0, item);
   saveData();
   renderTasks();
 }
@@ -438,6 +511,10 @@ function collectItem(itemUid) {
     state.collection[cardId] = entry;
     state.stats.totalCollected++;
     recordDaily(cardId, cat);
+    // 时段计数：早6-8点 / 晚22-24点
+    const hour = new Date().getHours();
+    if (hour >= 6 && hour < 8) state.stats.morningCollects = (state.stats.morningCollects || 0) + 1;
+    if (hour >= 22) state.stats.nightCollects = (state.stats.nightCollects || 0) + 1;
     state.todayList = state.todayList.filter(i => i.uid !== itemUid);
     saveData();
     checkAchievements();
@@ -453,8 +530,14 @@ function collectItem(itemUid) {
 
 function removeFromList(itemUid) {
   state.todayList = state.todayList.filter(i => i.uid !== itemUid);
+  state.tomorrowList = state.tomorrowList.filter(i => i.uid !== itemUid);
   saveData();
   renderTasks();
+}
+/* 删除卡片模板时，把两个清单里它的任务行一并移除 */
+function purgeListItemRows(cardId) {
+  state.todayList = state.todayList.filter(i => i.cardId !== cardId);
+  state.tomorrowList = state.tomorrowList.filter(i => i.cardId !== cardId);
 }
 
 /* 今日任务页事件（委托） */
@@ -465,15 +548,31 @@ $('#page-tasks').addEventListener('click', e => {
     renderTasks();
     return;
   }
+  const dayTab = e.target.closest('[data-day]');
+  if (dayTab && dayTab.classList.contains('day-tab')) {
+    currentDay = dayTab.dataset.day;
+    renderTasks();
+    return;
+  }
+  if (e.target.closest('#restoreBuiltin')) {
+    state.hiddenBuiltin = [];
+    saveData();
+    renderTasks();
+    toast('已恢复全部初始卡片');
+    return;
+  }
   const addBtn = e.target.closest('[data-add]');
   if (addBtn) { addToList(addBtn.dataset.add); return; }
   const delCardBtn = e.target.closest('[data-delcard]');
   if (delCardBtn) {
     const id = delCardBtn.dataset.delcard;
-    const tpl = state.customCards.find(c => c.id === id);
+    const isBuiltin = BUILTIN_CARDS.some(c => c.id === id);
+    const tpl = allCardTemplates().find(c => c.id === id);
     openModal(`
       <h3>删除卡片模板</h3>
-      <p class="modal-text">确定删除「${tpl ? esc(tpl.name) : ''}」吗？<br>已收集的历史记录会保留在卡片盒。</p>
+      <p class="modal-text">确定删除「${tpl ? esc(tpl.name) : ''}」吗？<br>${isBuiltin
+        ? '初始卡片删除后不再显示，可随时在卡片池下方恢复。'
+        : '已收集的历史记录会保留在卡片盒。'}<br>两个清单里它的任务也会一并移除。</p>
       <div class="modal-actions">
         <button class="btn btn-ghost" data-modal-cancel>取消</button>
         <button class="btn btn-danger" data-modal-delcard-ok="${esc(id)}">删除</button>
@@ -481,7 +580,14 @@ $('#page-tasks').addEventListener('click', e => {
     return;
   }
   const checkBtn = e.target.closest('[data-check]');
-  if (checkBtn) { collectItem(checkBtn.dataset.check); return; }
+  if (checkBtn) {
+    if (checkBtn.closest('.task-row').classList.contains('tomorrow')) {
+      toast('🛌 这是明天的任务，明天才能完成哦');
+      return;
+    }
+    collectItem(checkBtn.dataset.check);
+    return;
+  }
   const removeBtn = e.target.closest('[data-remove]');
   if (removeBtn) { removeFromList(removeBtn.dataset.remove); return; }
   if (e.target.closest('#addCardBtn')) openAddCardModal();
@@ -528,8 +634,14 @@ $('#modalBox').addEventListener('click', e => {
   }
   const delOk = e.target.closest('[data-modal-delcard-ok]');
   if (delOk) {
-    state.customCards = state.customCards.filter(c => c.id !== delOk.dataset.modalDelcardOk);
-    state.stats.deletedCards = (state.stats.deletedCards || 0) + 1;
+    const id = delOk.dataset.modalDelcardOk;
+    if (BUILTIN_CARDS.some(c => c.id === id)) {
+      state.hiddenBuiltin.push(id); // 初始卡片只是隐藏，可恢复
+    } else {
+      state.customCards = state.customCards.filter(c => c.id !== id);
+      state.stats.deletedCards = (state.stats.deletedCards || 0) + 1;
+    }
+    purgeListItemRows(id);
     saveData();
     closeModal();
     renderTasks();
@@ -624,7 +736,7 @@ function onDragMove(e) {
       return e.clientY < rect.top + rect.height / 2;
     });
     list.insertBefore(marker, target || null);
-    dragCtx.dropIndex = target ? state.todayList.findIndex(i => i.uid === target.dataset.uid) : state.todayList.length;
+    dragCtx.dropIndex = target ? listState().findIndex(i => i.uid === target.dataset.uid) : listState().length;
   } else {
     marker?.remove();
     dragCtx.dropIndex = null;
@@ -659,13 +771,14 @@ function onDragEnd(e) {
 
 function reorderList(itemUid, newIndex) {
   if (newIndex === null || newIndex === undefined) return;
-  const oldIndex = state.todayList.findIndex(i => i.uid === itemUid);
+  const target = listState();
+  const oldIndex = target.findIndex(i => i.uid === itemUid);
   if (oldIndex < 0) return;
-  const [item] = state.todayList.splice(oldIndex, 1);
+  const [item] = target.splice(oldIndex, 1);
   // 移除后索引可能偏移，按落点前后修正
   let idx = newIndex;
   if (oldIndex < idx) idx--;
-  state.todayList.splice(Math.max(0, Math.min(idx, state.todayList.length)), 0, item);
+  target.splice(Math.max(0, Math.min(idx, target.length)), 0, item);
   saveData();
   renderTasks();
 }
@@ -872,6 +985,16 @@ $('#copyWechatBtn').addEventListener('click', async () => {
 /* 头像占位：等作者提供真实头像 assets/avatar.jpg 后自动显示 */
 $('#avatarImg').addEventListener('error', () => {
   $('#avatarImg').src = 'assets/avatar-placeholder.svg';
+});
+/* 彩蛋：双击头像 → 轻微晃动，并累计「拍拍」次数 */
+$('#avatarImg').addEventListener('dblclick', () => {
+  const img = $('#avatarImg');
+  img.classList.remove('avatar-shake');
+  void img.offsetWidth; // 重置动画
+  img.classList.add('avatar-shake');
+  state.stats.avatarPats = (state.stats.avatarPats || 0) + 1;
+  saveData();
+  checkAchievements();
 });
 
 /* ══════════════ 初始化 ══════════════ */
