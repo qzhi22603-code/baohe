@@ -283,6 +283,56 @@ main { flex: 1; width: min(1100px, calc(100% - 40px)); margin: 26px auto 40px; }
 .task-card.add-card .plus-big { font-size: 30px; font-weight: 300; }
 
 .task-list { display: flex; flex-direction: column; gap: 10px; min-height: 120px; }
+
+/* 今日/明日 翻页标签 */
+.day-tabs {
+  display: inline-flex;
+  gap: 4px;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 14px;
+}
+.day-tab {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 13px;
+  padding: 6px 16px;
+  border-radius: 9px;
+  transition: background .15s, color .15s;
+}
+.day-tab.active { background: var(--primary); color: var(--on-primary); }
+
+/* 明日任务行：置灰、不可完成 */
+.task-row.tomorrow { opacity: .62; border-style: dashed; }
+.task-row.tomorrow .checkbox { border-style: dashed; cursor: not-allowed; }
+.task-row.tomorrow .row-name { color: var(--muted); }
+
+/* 恢复初始卡片入口 */
+.restore-link {
+  display: block;
+  margin: 2px auto 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 12.5px;
+  text-decoration: underline;
+  padding: 6px 10px;
+}
+.restore-link:hover { color: var(--primary); }
+
+/* 头像晃动彩蛋 */
+@keyframes avatarShake {
+  0%, 100% { transform: rotate(0deg) translateX(0); }
+  20% { transform: rotate(-4deg) translateX(-3px); }
+  40% { transform: rotate(3.5deg) translateX(3px); }
+  60% { transform: rotate(-2.5deg) translateX(-2px); }
+  80% { transform: rotate(1.5deg) translateX(1px); }
+}
+.avatar-shake { animation: avatarShake .55s ease; }
 .task-list.drop-ready { outline: 2px dashed transparent; outline-offset: 6px; border-radius: 14px; }
 .task-list.drag-over {
   outline: 2px dashed var(--primary);
@@ -663,4 +713,26 @@ body.dragging-active, body.dragging-active * { cursor: grabbing !important; user
   .tasks-grid { grid-template-columns: 1fr; }
   .stats-strip { grid-template-columns: 1fr; }
   main { margin-top: 18px; }
+  .card-pool { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 10px; }
+  .task-card .card-emoji { width: 46px; height: 46px; font-size: 27px; }
+  .task-card .card-name { font-size: 12px; }
+  .panel { padding: 14px; border-radius: 15px; }
+  .day-tabs { width: 100%; justify-content: stretch; }
+  .day-tab { flex: 1; padding: 8px 10px; }
+}
+
+/* ───────── 触屏设备（手机/平板）优化 ───────── */
+@media (hover: none) and (pointer: coarse) {
+  /* 没有悬停：＋/✕ 按钮常显，不再透明 */
+  .task-card .card-corner { opacity: 1; transform: scale(1); }
+  .task-card .card-corner.add { width: 26px; height: 26px; font-size: 17px; }
+  .task-card .card-corner.del { width: 22px; height: 22px; font-size: 13px; }
+  .card-cat { top: 6px; left: 6px; font-size: 12px; }
+  /* 触控目标加大 */
+  .task-row { padding: 14px 12px; gap: 10px; }
+  .task-row .checkbox { width: 27px; height: 27px; }
+  .task-row .row-x { padding: 8px 10px; }
+  .task-row .grip { padding: 10px 4px; }
+  .cat-chip { padding: 8px 15px; font-size: 13px; }
+  .day-tab { padding: 9px 18px; }
 }
