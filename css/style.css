@@ -736,3 +736,56 @@ body.dragging-active, body.dragging-active * { cursor: grabbing !important; user
   .cat-chip { padding: 8px 15px; font-size: 13px; }
   .day-tab { padding: 9px 18px; }
 }
+
+/* ───────── 集卡特效 ───────── */
+.collect-fx {
+  position: fixed;
+  left: 50%; top: 42%;
+  z-index: 1300;
+  pointer-events: none;
+  opacity: 0;
+}
+.collect-fx .fx-card {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  min-width: 150px;
+  background: var(--card);
+  border: 3px solid var(--primary);
+  border-radius: 18px;
+  padding: 22px 26px 16px;
+  box-shadow: 0 24px 60px rgba(0,0,0,.28), var(--shadow);
+}
+.fx-card .fx-emoji { font-size: 52px; line-height: 1.2; }
+.fx-card .fx-name { font-size: 16px; font-weight: 700; }
+.fx-card .fx-count {
+  padding: 2px 14px; border-radius: 999px;
+  background: var(--primary-soft); color: var(--primary-strong);
+  font-weight: 700; font-size: 13px;
+}
+[data-theme="dark"] .fx-card .fx-count { color: var(--text); }
+.collect-fx.pop { animation: fxPop .5s cubic-bezier(.18,1.5,.35,1) forwards; }
+@keyframes fxPop {
+  0%   { opacity: 0; transform: translate(-50%,-50%) scale(.2) rotate(-6deg); }
+  60%  { opacity: 1; transform: translate(-50%,-50%) scale(1.06) rotate(1.5deg); }
+  100% { opacity: 1; transform: translate(-50%,-50%) scale(1) rotate(0deg); }
+}
+.collect-fx.suck { animation: fxSuck .8s cubic-bezier(.5,0,.8,.4) forwards; }
+@keyframes fxSuck {
+  0%   { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+  55%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, 60vh) scale(.1) rotate(10deg); }
+}
+.fx-star {
+  position: absolute;
+  left: 50%; top: 50%;
+  color: var(--primary);
+  font-size: 15px;
+  opacity: 0;
+  pointer-events: none;
+  animation: fxTwinkle .45s ease-in-out 2;
+}
+.fx-star:nth-child(3n) { font-size: 19px; }
+.fx-star:nth-child(4n) { font-size: 12px; }
+@keyframes fxTwinkle {
+  0%, 100% { opacity: 0; transform: translate(-50%,-50%) translate(var(--sx), var(--sy)) scale(.3) rotate(0deg); }
+  50% { opacity: 1; transform: translate(-50%,-50%) translate(var(--sx), var(--sy)) scale(1.1) rotate(25deg); }
+}
